@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生生不息bx | iOS26 液态玻璃主页</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+        }
+        :root {
+            /* iOS26官方液态玻璃参数 - 核心！ */
+            --ios-glass-blur: 30px;
+            --ios-glass-bg: rgba(255, 255, 255, 0.08);
+            --ios-glass-border: 1px solid rgba(255, 255, 255, 0.18);
+            --ios-glass-radius: 24px;
+            --ios-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --ios-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.1);
+            /* 原生配色 - 低饱和柔光 */
+            --ios-primary: #007AFF;
+            --ios-secondary: #5E5CE6;
+            --ios-text-main: #1D1D1F;
+            --ios-text-secondary: #86868B;
+            --ios-bg: linear-gradient(160deg, #F5F5F7, #E8E8ED);
+            --ios-vibrancy: rgba(255, 255, 255, 0.6);
+        }
+        body {
+            background: var(--ios-bg);
+            color: var(--ios-text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding: 24px 0;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* WebGL液态玻璃画布 - 贴合iOS26光学折射 */
+        #glCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+        /* ✅ iOS26原生导航栏 - 流体凝胶质感 */
+        .ios-nav {
+            position: sticky;
+            top: 24px;
+            z-index: 10;
+            background: var(--ios-glass-bg);
+            backdrop-filter: blur(var(--ios-glass-blur)) saturate(180%);
+            -webkit-backdrop-filter: blur(var(--ios-glass-blur)) saturate(180%);
+            border: var(--ios-glass-border);
+            border-radius: var(--ios-glass-radius);
+            box-shadow: var(--ios-shadow);
+            padding: 14px 28px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .ios-nav:hover {
+            box-shadow: var(--ios-shadow-hover);
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+        .nav-logo {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--ios-primary);
+            letter-spacing: 0.5px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .nav-links a {
+            color: var(--ios-text-main);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 16px;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            position: relative;
+        }
+        .nav-links a:hover {
+            background: var(--ios-vibrancy);
+            color: var(--ios-primary);
+            transform: translateY(-1px);
+        }
+        /* ✅ iOS26原生按钮 - 极简玻璃态 */
+        .ios-btn {
+            padding: 9px 20px;
+            background: var(--ios-glass-bg);
+            backdrop-filter: blur(var(--ios-glass-blur)) saturate(180%);
+            -webkit-backdrop-filter: blur(var(--ios-glass-blur)) saturate(180%);
+            border: var(--ios-glass-border);
+            border-radius: 18px;
+            color: var(--ios-primary);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .ios-btn:hover {
+            background: var(--ios-vibrancy);
+            box-shadow: var(--ios-shadow-hover);
+            transform: translateY(-2px) scale(1.02);
+        }
+        /* ✅ iOS26核心：液态玻璃卡片 - 光学折射+动态适配 */
+        .ios-glass-card {
+            position: relative;
+            background: var(--ios-glass-bg);
+            backdrop-filter: blur(var(--ios-glass-blur)) saturate(180%);
+            -webkit-backdrop-filter: blur(var(--ios-glass-blur)) saturate(180%);
+            border: var(--ios-glass-border);
+            border-radius: var(--ios-glass-radius);
+            box-shadow: var(--ios-shadow);
+            padding: 32px;
+            margin-bottom: 24px;
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            overflow: hidden;
+        }
+        /* iOS26光学高光 - 模拟真实玻璃光影折射（非顶部渐变，原生斜向柔光） */
+        .ios-glass-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -50%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.05) 100%);
+            pointer-events: none;
+            transform: skewX(-20deg);
+        }
+        .ios-glass-card:hover {
+            box-shadow: var(--ios-shadow-hover);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-6px);
+        }
+        /* 头部个人信息 - iOS26极简排版 */
+        .header {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .avatar {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 255, 255, 0.6);
+            margin: 0 auto 24px;
+            box-shadow: var(--ios-shadow);
+            overflow: hidden;
+        }
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--ios-text-main);
+            letter-spacing: 0.8px;
+        }
+        .header p {
+            font-size: 17px;
+            color: var(--ios-text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        /* 核心内容网格 - iOS26原生间距 */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        /* iOS26模块标题 - 极简原生样式 */
+        .ios-module-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            z-index: 2;
+            color: var(--ios-text-main);
+        }
+        .ios-module-title::before {
+            content: "";
+            width: 6px;
+            height: 22px;
+            background: var(--ios-primary);
+            border-radius: 3px;
+        }
+        /* ✅ 技能项 - iOS26标签式玻璃态 */
+        .skills-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            position: relative;
+            z-index: 2;
+        }
+        .skill-item {
+            padding: 8px 18px;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(var(--ios-glass-blur));
+            -webkit-backdrop-filter: blur(var(--ios-glass-blur));
+            border: var(--ios-glass-border);
+            border-radius: 20px;
+            color: var(--ios-primary);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .skill-item:hover {
+            background: var(--ios-primary);
+            color: #fff;
+            transform: translateY(-2px) scale(1.03);
+            border-color: transparent;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+        }
+        /* ✅ 项目项 - iOS26列表式玻璃态 */
+        .projects-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 18px;
+            position: relative;
+            z-index: 2;
+        }
+        .project-item {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(var(--ios-glass-blur));
+            -webkit-backdrop-filter: blur(var(--ios-glass-blur));
+            border: var(--ios-glass-border);
+            border-left: 3px solid var(--ios-primary);
+            border-radius: 18px;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .project-item:hover {
+            box-shadow: var(--ios-shadow-hover);
+            transform: translateX(3px);
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+        .project-item h3 {
+            font-size: 17px;
+            margin-bottom: 8px;
+            color: var(--ios-text-main);
+            font-weight: 600;
+        }
+        .project-item p {
+            font-size: 14px;
+            color: var(--ios-text-secondary);
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        /* ✅ 项目链接 - iOS26原生链接样式 */
+        .project-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: var(--ios-glass-bg);
+            backdrop-filter: blur(var(--ios-glass-blur));
+            -webkit-backdrop-filter: blur(var(--ios-glass-blur));
+            border: var(--ios-glass-border);
+            border-radius: 16px;
+            color: var(--ios-primary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .project-link:hover {
+            background: var(--ios-vibrancy);
+            transform: scale(1.03);
+        }
+        /* 关于我/联系方式 - iOS26原生文本排版 */
+        .about-text {
+            line-height: 1.8;
+            color: var(--ios-text-secondary);
+            font-size: 15px;
+            text-align: justify;
+            position: relative;
+            z-index: 2;
+        }
+        .contact-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+            z-index: 2;
+        }
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 15px;
+            color: var(--ios-text-secondary);
+        }
+        .contact-item i {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(90deg, var(--ios-primary), var(--ios-secondary));
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+            box-shadow: var(--ios-shadow);
+        }
+        .contact-item a {
+            color: var(--ios-text-secondary);
+            text-decoration: none;
+            flex: 1;
+            padding: 6px 0;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .contact-item a:hover {
+            color: var(--ios-primary);
+            background: var(--ios-vibrancy);
+            padding-left: 8px;
+        }
+        /* 页脚 - iOS26极简玻璃态 */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--ios-text-secondary);
+            font-size: 14px;
+            position: relative;
+            z-index: 2;
+            letter-spacing: 0.3px;
+        }
+        /* 📱 iOS26原生响应式 - 全设备适配 */
+        @media (max-width: 992px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 768px) {
+            :root {
+                --ios-glass-blur: 25px;
+                --ios-glass-radius: 20px;
+            }
+            .ios-nav {
+                padding: 12px 20px;
+            }
+            .nav-links {
+                gap: 12px;
+            }
+            .nav-links a {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+            .ios-btn {
+                padding: 7px 16px;
+                font-size: 14px;
+            }
+            .header h1 {
+                font-size: 28px;
+            }
+            .header p {
+                font-size: 16px;
+            }
+            .avatar {
+                width: 120px;
+                height: 120px;
+            }
+            .ios-glass-card {
+                padding: 24px;
+            }
+            .skill-item {
+                padding: 6px 14px;
+                font-size: 13px;
+            }
+        }
+        @media (max-width: 576px) {
+            .container {
+                padding: 0 16px;
+            }
+            .ios-nav {
+                flex-direction: column;
+                gap: 16px;
+                padding: 16px;
+                top: 16px;
+            }
+            .nav-links {
+                width: 100%;
+                justify-content: space-around;
+            }
+            .ios-module-title {
+                font-size: 20px;
+            }
+            .contact-item {
+                font-size: 14px;
+            }
+            .contact-item i {
+                width: 34px;
+                height: 34px;
+                font-size: 16px;
+            }
+        }
+    </style>
+    <!-- Three.js CDN - 贴合iOS26光学折射 -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <!-- FontAwesome iOS26原生图标风格 -->
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- WebGL液态玻璃画布 - iOS26光学折射核心 -->
+    <canvas id="glCanvas"></canvas>
+    <!-- 页面主容器 -->
+    <div class="container">
+        <!-- iOS26原生导航栏 -->
+        <nav class="ios-nav">
+            <div class="nav-logo">生生不息bx</div>
+            <div class="nav-links">
+                <a href="#home">首页</a>
+                <a href="#about">关于我</a>
+                <a href="#skills">技能栈</a>
+                <a href="#projects">项目</a>
+                <a href="#contact">联系</a>
+                <button class="ios-btn">收藏</button>
+            </div>
+        </nav>
+        <!-- 头部：个人信息 - iOS26极简排版 -->
+        <header class="ios-glass-card header" id="home">
+            <div class="avatar">
+                <img src="https://i0.hdslb.com/bfs/new_dyn/a773b2af9e38b47d362112fae6d34d1820530305.png@264w_264h_1e_1c.avif" alt="个人头像">
+            </div>
+            <h1>生生不息bx</h1>
+            <p>一个学生 | 专注电脑课摸鱼开发 | 热爱技术与设计的结合，追求极致用户体验</p>
+        </header>
+        <!-- 核心内容 - iOS26原生网格布局 -->
+        <main class="main-content">
+            <section class="ios-glass-card about" id="about">
+                <h2 class="ios-module-title">关于我</h2>
+                <p class="about-text">
+                    从事电脑课摸鱼开发3年，熟练掌握前端主流技术栈，擅长使用飞书搭建民用级文章，同时具备mc.js可视化游戏能力。
+                    注重质量和用户体验，喜欢探索前沿技术，坚持将设计美学与技术实现结合，打造美观、高效、实用的产品。
+                    日常持续学习前端可视化相关知识，业余时间喜欢UI设计、户外运动和旅行，保持对生活和技术的双重热情。
+                </p>
+            </section>
+            <section class="ios-glass-card skills" id="skills">
+                <h2 class="ios-module-title">技能栈</h2>
+                <div class="skills-list">
+                    <div class="skill-item">HTML5/CSS3</div>
+                    <div class="skill-item">JavaScript/TS</div>
+                    <div class="skill-item">Vue3 + Vite</div>
+                    <div class="skill-item">React + Next.js</div>
+                    <div class="skill-item">WebGL/Three.js</div>
+                    <div class="skill-item">UniApp</div>
+                    <div class="skill-item">Tailwind CSS</div>
+                    <div class="skill-item">Git/Github</div>
+                    <div class="skill-item">美观化</div>
+                    <div class="skill-item">可视化</div>
+                </div>
+            </section>
+            <section class="ios-glass-card projects" id="projects">
+                <h2 class="ios-module-title">项目展示</h2>
+                <div class="projects-list">
+                    <div class="project-item">
+                        <h3>飞书文档摸鱼awa游戏</h3>
+                        <p>集成海量优质网页小游戏，打开飞书文档即可直接游玩，无需额外安装，丰富摸鱼时光，欢迎体验探索。</p>
+                        <a href="https://bcnek3yi40j3.feishu.cn/wiki/YIXtwMVGYiRwaNkQA3KcJYYXnfh" target="_blank" class="project-link"><i class="fas fa-external-link-alt"></i> 查看项目</a>
+                    </div>
+                    <div class="project-item">
+                        <h3>飞书文档游戏下载站</h3>
+                        <p>游戏资源下载首选平台，依托飞书高速传输能力，实现极速下载，集成各类热门游戏资源，满足下载需求！</p>
+                        <a href="https://bcnek3yi40j3.feishu.cn/wiki/Go0LwLpFCiDq3zkds3gcMkEZndd" target="_blank" class="project-link"><i class="fas fa-external-link-alt"></i> 查看项目</a>
+                    </div>
+                </div>
+            </section>
+            <section class="ios-glass-card contact" id="contact">
+                <h2 class="ios-module-title">联系方式</h2>
+                <div class="contact-list">
+                    <div class="contact-item">
+                        <i class="fas fa-envelope"></i>
+                        <a href="mailto:xiaoguya_2023@qq.com" target="_blank">xiaoguya_2023@qq.com</a>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-phone"></i>
+                        <span>133-1601-3440</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fab fa-github"></i>
+                        <a href="https://github.com/xiaoguya233/" target="_blank">github.com/xiaoguya233</a>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fab fa-weixin"></i>
+                        <span>wxid_nfmjlu1iedbz22</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>广州市 番禺区</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+        <!-- 页脚 - iOS26极简玻璃态 -->
+        <footer class="ios-glass-card footer">
+            <p>© 2026 个人主页 | iOS26 Liquid Glass 原生风格</p>
+        </footer>
+    </div>
+    <!-- WebGL液态玻璃逻辑 - 适配iOS26光学折射参数 -->
+    <script>
+        // iOS26官方光学参数调优
+        const glassParams = {
+            ior: 1.08, // 低折射率=更轻的玻璃感
+            thickness: 25, // 薄玻璃=iOS26原生轻薄
+            normalStrength: 5.2, // 柔和扭曲=流体凝胶
+            blurRadius: 0.15, // 轻微磨砂=原生质感
+            mouseX: 0,
+            mouseY: 0
+        };
+        const canvas = document.getElementById('glCanvas');
+        let scene, camera, renderer, glassPlane, renderTarget;
+        initThreeJS();
+        bindEvents();
+        animate();
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 500;
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.autoClear = false;
+            renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+                minFilter: THREE.LinearFilter,
+                magFilter: THREE.LinearFilter,
+                format: THREE.RGBAFormat
+            });
+            createGlassPlane();
+        }
+        function createGlassPlane() {
+            if (glassPlane) scene.remove(glassPlane);
+            const geometry = new THREE.PlaneGeometry(window.innerWidth, window.innerHeight, 128, 128);
+            const glassMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    uIOR: { value: glassParams.ior },
+                    uThickness: { value: glassParams.thickness / 100 },
+                    uNormalStrength: { value: glassParams.normalStrength },
+                    uBlur: { value: glassParams.blurRadius },
+                    uMouse: { value: new THREE.Vector2(glassParams.mouseX, glassParams.mouseY) },
+                    uScreenSize: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                    uBackground: { value: renderTarget.texture }
+                },
+                vertexShader: `
+                    uniform vec2 uMouse;
+                    uniform float uNormalStrength;
+                    attribute vec3 position;
+                    attribute vec2 uv;
+                    varying vec2 vUv;
+                    varying vec3 vNormal;
+                    float random(vec2 st) {
+                        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+                    }
+                    float noise(vec2 st) {
+                        vec2 i = floor(st);
+                        vec2 f = fract(st);
+                        float a = random(i);
+                        float b = random(i + vec2(1.0, 0.0));
+                        float c = random(i + vec2(0.0, 1.0));
+                        float d = random(i + vec2(1.0, 1.0));
+                        vec2 u = f * f * (3.0 - 2.0 * f);
+                        return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+                    }
+                    void main() {
+                        vUv = uv;
+                        vec3 newPos = position;
+                        // iOS26流体位移 - 更柔和的鼠标跟随
+                        newPos.z += noise(uv * 6.0 + uMouse * 3.0) * uNormalStrength * 1.5;
+                        vNormal = normalize(normal + vec3(noise(uv*25.0)-0.5, noise(uv*25.0+8.0)-0.5, 0.0) * uNormalStrength * 0.08);
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform float uIOR;
+                    uniform float uThickness;
+                    uniform float uBlur;
+                    uniform vec2 uScreenSize;
+                    uniform vec2 uMouse;
+                    uniform sampler2D uBackground;
+                    varying vec2 vUv;
+                    varying vec3 vNormal;
+                    vec4 blurTexture(sampler2D tex, vec2 uv, float blur) {
+                        vec4 color = vec4(0.0);
+                        vec2 offset = 1.0 / uScreenSize * blur;
+                        for (int x = -1; x <= 1; x++) {
+                            for (int y = -1; y <= 1; y++) {
+                                color += texture2D(tex, uv + vec2(x, y) * offset);
+                            }
+                        }
+                        return color / 9.0;
+                    }
+                    void main() {
+                        // iOS26光学折射 - 更轻微的光线弯曲
+                        vec3 viewDir = normalize(vec3(vUv - 0.5, 1.2));
+                        vec3 refracted = refract(viewDir, vNormal, 1.0 / uIOR);
+                        vec2 refractedUv = vUv + refracted.xy * uThickness;
+                        vec4 bgColor = blurTexture(uBackground, refractedUv, uBlur);
+                        // iOS26柔光高光 - 非刺眼，更自然
+                        vec3 highlight = pow(max(dot(reflect(viewDir, vNormal), vec3(0.0, 0.0, 1.0)), 0.0), 10.0) * 0.35;
+                        gl_FragColor = vec4(bgColor.rgb + highlight, 0.85);
+                    }
+                `,
+                transparent: true,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            glassPlane = new THREE.Mesh(geometry, glassMaterial);
+            scene.add(glassPlane);
+        }
+        function bindEvents() {
+            // iOS26流体交互 - 鼠标移动更柔和的玻璃扭曲
+            document.addEventListener('mousemove', (e) => {
+                glassParams.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+                glassParams.mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+                glassPlane.material.uniforms.uMouse.value = new THREE.Vector2(glassParams.mouseX * 0.8, glassParams.mouseY * 0.8);
+            });
+            window.addEventListener('resize', onWindowResize);
+            // iOS26原生平滑滚动
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                });
+            });
+        }
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderTarget.setSize(window.innerWidth, window.innerHeight);
+            createGlassPlane();
+            glassPlane.material.uniforms.uScreenSize.value = new THREE.Vector2(window.innerWidth, window.innerHeight);
+        }
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.setRenderTarget(renderTarget);
+            renderer.clear();
+            renderer.render(scene, camera);
+            renderer.setRenderTarget(null);
+            renderer.clear();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
